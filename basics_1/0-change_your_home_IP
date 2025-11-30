@@ -1,19 +1,22 @@
 #!/usr/bin/env bash
-# Check if running as root
-if [ "$EUID" -ne 0 ]; then
-  echo "Please run as root"
-  exit 1
-fi
+# Configures host resolution: localhost → 127.0.0.2, facebook.com → 8.8.8.8
 
-# Backup hosts file
-cp /etc/hosts /etc/hosts.bak
+# Temporary file to write updates
+tmpfile=$(mktemp)
 
-# Change localhost entry
-sed -i 's/^127\.0\.0\.1[[:space:]]\+localhost/127.0.0.2 localhost/' /etc/hosts
+# Change localhost mapping
+sed 's/^127\.0\.0\.1[[:space:]]\+localhost/127.0.0.2 localhost/' /etc/hosts > "$tmpfile"
 
-# Modify or add facebook.com entry
-if grep -q "facebook.com" /etc/hosts; then
-  sed -i 's/.*facebook.com/8.8.8.8 facebook.com/' /etc/hosts
+# facebook.com mapping (replace if exists, otherwise append)
+if grep -q "facebook.com" "$tmpfile"; then
+    sed 's/.*facebook.com/8.8.8.8 facebook.com/' "$tmpfile" > "${tmpfile}.2"
+    mv "${tmpfile}.2" "$tmpfile"
 else
-  echo "8.8.8.8 facebook.com" >> /etc/hosts
+    echo "8.8.8.8 facebook.com" >> "$tmpfile"
 fi
+
+# Overwrite hosts file
+cat "$tmpfile" > /etc/hosts
+
+# Clean up
+rm -f "$tmpfile"
